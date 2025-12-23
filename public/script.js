@@ -1,30 +1,181 @@
-const notes = [];
-const reminders = [];
+let notes = [];
+let reminders = [];
 
-// Unique ID counter
-let idCounter = parseInt(localStorage.getItem('idCounter')) || 0;
+const API_BASE = 'http://localhost:3000';
 
-displayNotes();
-displayReminders();
+// Load data from server on page load
+async function loadData() {
+    try {
+        const response = await fetch(`${API_BASE}/api/notes`);
+        const data = await response.json();
+        notes = data.notes || [];
+        reminders = data.reminders || [];
+        displayNotes();
+        displayReminders();
+    } catch (error) {
+        console.error('Error loading data from server:', error);
+        // Fallback to localStorage if server is not available
+        loadFromLocalStorage();
+    }
+}
+
+// Fallback function to load from localStorage
+function loadFromLocalStorage() {
+    const savedNotes = localStorage.getItem('notes');
+    const savedReminders = localStorage.getItem('reminders');
+
+    if (savedNotes) {
+        notes = JSON.parse(savedNotes);
+    }
+    if (savedReminders) {
+        reminders = JSON.parse(savedReminders);
+    }
+
+    displayNotes();
+    displayReminders();
+}
+
+// Save data to server and update local arrays
+async function saveToServerAndUpdateLocal(note) {
+    try {
+        const response = await fetch(`${API_BASE}/api/notes`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(note),
+        });
+        const savedNote = await response.json();
+
+        // Update local arrays
+        if (savedNote.reminder) {
+            reminders.push(savedNote);
+        } else {
+            notes.push(savedNote);
+        }
+
+        return savedNote;
+    } catch (error) {
+        console.error('Error saving to server:', error);
+        // Fallback to localStorage
+        saveToLocalStorage();
+        if (note.reminder) {
+            reminders.push(note);
+        } else {
+            notes.push(note);
+        }
+        return note;
+    }
+}
+
+// Update data on server and local arrays
+async function updateOnServerAndLocal(id, updates) {
+    try {
+        const response = await fetch(`${API_BASE}/api/notes/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updates),
+        });
+        const updatedNote = await response.json();
+
+        // Update local arrays
+        updateLocalArrays(updatedNote);
+
+        return updatedNote;
+    } catch (error) {
+        console.error('Error updating on server:', error);
+        // Fallback to localStorage
+        updateLocalStorage();
+        return null;
+    }
+}
+
+// Delete from server and local arrays
+async function deleteFromServerAndLocal(id) {
+    try {
+        await fetch(`${API_BASE}/api/notes/${id}`, {
+            method: 'DELETE',
+        });
+
+        // Update local arrays
+        notes = notes.filter(note => note.id !== id);
+        reminders = reminders.filter(reminder => reminder.id !== id);
+
+    } catch (error) {
+        console.error('Error deleting from server:', error);
+        // Fallback to localStorage
+        deleteFromLocalStorage(id);
+    }
+}
+
+// Helper function to update local arrays
+function updateLocalArrays(updatedNote) {
+    // Remove from both arrays first
+    notes = notes.filter(note => note.id !== updatedNote.id);
+    reminders = reminders.filter(reminder => reminder.id !== updatedNote.id);
+
+    // Add to appropriate array
+    if (updatedNote.reminder) {
+        reminders.push(updatedNote);
+    } else {
+        notes.push(updatedNote);
+    }
+}
+
+// Fallback localStorage functions
+function saveToLocalStorage() {
+    localStorage.setItem('notes', JSON.stringify(notes));
+    localStorage.setItem('reminders', JSON.stringify(reminders));
+}
+
+function updateLocalStorage() {
+    saveToLocalStorage();
+}
+
+function deleteFromLocalStorage(id) {
+    notes = notes.filter(note => note.id !== id);
+    reminders = reminders.filter(reminder => reminder.id !== id);
+    saveToLocalStorage();
+}
+
+// Get next ID from server
+async function getNextId() {
+    try {
+        const response = await fetch(`${API_BASE}/api/next-id`);
+        const data = await response.json();
+        return data.nextId;
+    } catch (error) {
+        // Fallback to localStorage counter
+        let idCounter = parseInt(localStorage.getItem('idCounter')) || 0;
+        return ++idCounter;
+    }
+}
+
+// Initialize app
+loadData();
 
 // Check reminders every minute
 setInterval(checkReminders, 60000);
 checkReminders(); // Check immediately on load
 
-document.getElementById("add-note-button").addEventListener("click", () => {
+document.getElementById("add-note-button").addEventListener("click", async () => {
     const noteContent = document.getElementById("note-content").value;
     const noteTitle = document.getElementById("note-title").value;
     const noteDatetime = document.getElementById("note-datetime").value;
 
     // Generate title if empty
-    let title = noteTitle.trim();
+    let title = noteTitle;
     if (!title) {
         const untitledCount = [...notes, ...reminders].filter(note => note.title && note.title.startsWith("Untitled")).length;
         title = `Untitled${untitledCount + 1}`;
     }
 
+    const id = await getNextId();
+
     const note = {
-        id: ++idCounter,
+        id: id,
         title: title,
         content: noteContent,
         timestamp: new Date().toLocaleString(),
@@ -36,22 +187,29 @@ document.getElementById("add-note-button").addEventListener("click", () => {
         missed: false
     };
 
-    localStorage.setItem('idCounter', idCounter);
+    try {
+        // Save to server and update local arrays
+        await saveToServerAndUpdateLocal(note);
 
-    if (note.reminder) {
-        reminders.push(note);
-        displayReminders();
-    } else {
-        notes.push(note);
+        // Update display
         displayNotes();
-    }
+        displayReminders();
 
-    // Clear fields
+        // Clear fields
+        document.getElementById("note-content").value = "";
+        document.getElementById("note-title").value = "";
+        document.getElementById("note-datetime").value = "";
+
+        checkReminders();
+    } catch (error) {
+        console.error('Error saving note:', error);
+    }
+});
+
+document.getElementById("reset-button").addEventListener("click", () => {
     document.getElementById("note-content").value = "";
     document.getElementById("note-title").value = "";
     document.getElementById("note-datetime").value = "";
-
-    checkReminders();
 });
 
 function displayNotes() {
@@ -126,43 +284,115 @@ function displayReminders() {
 }
 
 function editNote(index, type) {
-    const container = type === 'note' ? document.getElementById("notes-container") : document.getElementById("reminders-container");
     const noteList = type === 'note' ? notes : reminders;
     const note = noteList[index];
-    const noteElement = container.children[index];
+    const modal = document.getElementById('note-modal');
+    const modalBody = document.getElementById('modal-body');
 
-    noteElement.innerHTML = `
-        <input type="text" id="edit-title-${type}-${index}" value="${note.title}">
-        <textarea id="edit-content-${type}-${index}">${note.content}</textarea>
-        <small>Created at: ${note.timestamp}</small>
-        ${note.reminder ? `<br><small>Reminder set for: ${note.reminder}</small>` : ''}
-        <button id="done-${type}-${index}">Done</button>
-        <button id="cancel-${type}-${index}">Cancel</button>
+    const hasReminder = !!note.reminder;
+
+    modalBody.innerHTML = `
+        <h2>Edit ${type === 'note' ? 'Note' : 'Reminder'}</h2>
+        <div class="edit-input-section">
+            <input type="text" id="edit-title" value="${note.title}" placeholder="Edit Note Title">
+            <textarea id="edit-content" placeholder="Edit your note here...">${note.content}</textarea>
+            <input type="datetime-local" id="edit-datetime" value="${note.reminder ? new Date(note.reminder).toISOString().slice(0, 16) : ''}" style="display: ${hasReminder ? 'block' : 'none'}">
+            <div class="edit-buttons">
+                <button id="toggle-reminder">${hasReminder ? 'Remove Reminder' : 'Add Reminder'}</button>
+                <button id="reset-edit">Reset</button>
+                <button id="save-edit">Save</button>
+                <button id="cancel-edit">Cancel</button>
+            </div>
+        </div>
     `;
 
-    // Add event listener to the done button
-    const doneButton = document.getElementById(`done-${type}-${index}`);
-    doneButton.addEventListener("click", () => {
-        const newTitle = document.getElementById(`edit-title-${type}-${index}`).value;
-        const newContent = document.getElementById(`edit-content-${type}-${index}`).value;
-        note.title = newTitle;
-        note.content = newContent;
-        note.lastEditTime = new Date().toLocaleString();
-        if (type === 'note') {
-            displayNotes();
+    modal.style.display = 'block';
+
+    // Close modal
+    const closeBtn = document.querySelector('.close');
+    closeBtn.onclick = () => modal.style.display = 'none';
+    window.onclick = (event) => {
+        if (event.target === modal) modal.style.display = 'none';
+    };
+
+    let currentHasReminder = hasReminder;
+
+    // Toggle reminder button
+    document.getElementById('toggle-reminder').addEventListener('click', () => {
+        const datetimeInput = document.getElementById('edit-datetime');
+        const toggleBtn = document.getElementById('toggle-reminder');
+        if (currentHasReminder) {
+            // Remove reminder
+            datetimeInput.value = '';
+            datetimeInput.style.display = 'none';
+            toggleBtn.textContent = 'Add Reminder';
+            currentHasReminder = false;
         } else {
-            displayReminders();
+            // Add reminder
+            datetimeInput.style.display = 'block';
+            toggleBtn.textContent = 'Remove Reminder';
+            currentHasReminder = true;
         }
     });
 
-    // Add event listener to the cancel button
-    const cancelButton = document.getElementById(`cancel-${type}-${index}`);
-    cancelButton.addEventListener("click", () => {
-        if (type === 'note') {
-            displayNotes();
-        } else {
-            displayReminders();
+    // Reset button
+    document.getElementById('reset-edit').addEventListener('click', () => {
+        if (confirm('Are you sure you want to reset all changes?')) {
+            document.getElementById('edit-title').value = note.title;
+            document.getElementById('edit-content').value = note.content;
+            const datetimeInput = document.getElementById('edit-datetime');
+            datetimeInput.value = note.reminder ? new Date(note.reminder).toISOString().slice(0, 16) : '';
+            datetimeInput.style.display = hasReminder ? 'block' : 'none';
+            document.getElementById('toggle-reminder').textContent = hasReminder ? 'Remove Reminder' : 'Add Reminder';
+            currentHasReminder = hasReminder;
         }
+    });
+
+    // Add event listener to the save button
+    document.getElementById('save-edit').addEventListener('click', async () => {
+        const newTitle = document.getElementById('edit-title').value;
+        const newContent = document.getElementById('edit-content').value;
+        const newDatetime = currentHasReminder ? document.getElementById('edit-datetime').value : null;
+
+        note.title = newTitle;
+        note.content = newContent;
+        note.reminder = newDatetime;
+        if (newDatetime) {
+            note.alertedDay = false;
+            note.alertedTime = false;
+            note.missed = false;
+        }
+        note.lastEditTime = new Date().toLocaleString();
+
+        try {
+            const updates = {
+                title: newTitle,
+                content: newContent,
+                reminder: newDatetime,
+                lastEditTime: note.lastEditTime
+            };
+            if (newDatetime) {
+                updates.alertedDay = false;
+                updates.alertedTime = false;
+                updates.missed = false;
+            }
+
+            // Update on server and local arrays (this will move between arrays if reminder changed)
+            await updateOnServerAndLocal(note.id, updates);
+
+            // Refresh both displays since item might have moved
+            displayNotes();
+            displayReminders();
+            checkReminders();
+        } catch (error) {
+            console.error('Error updating note:', error);
+        }
+        modal.style.display = 'none';
+    });
+
+    // Add event listener to the cancel button
+    document.getElementById('cancel-edit').addEventListener('click', () => {
+        modal.style.display = 'none';
     });
 }
 
@@ -179,8 +409,7 @@ function showNoteDetails(index, type) {
 
     if (type === 'reminder') {
         buttons += `
-            <button id="toggle-done-detail">${note.done ? 'Undone' : 'Done'}</button>
-            <button id="reschedule-detail">Reschedule</button>
+            <button id="toggle-done-detail" class="${note.done ? 'undone' : 'done'}">${note.done ? 'Undone' : 'Done'}</button>
         `;
     }
 
@@ -209,42 +438,36 @@ function showNoteDetails(index, type) {
     // Add event listeners to buttons
     document.getElementById('edit-detail').addEventListener('click', () => {
         editNote(index, type);
-        modal.style.display = 'none';
+        // Don't close modal, editNote will update the content
     });
 
-    document.getElementById('delete-detail').addEventListener('click', () => {
+    document.getElementById('delete-detail').addEventListener('click', async () => {
+        // Delete from server and local arrays
+        await deleteFromServerAndLocal(note.id);
+
         if (type === 'note') {
-            notes.splice(index, 1);
             displayNotes();
         } else {
-            reminders.splice(index, 1);
             displayReminders();
         }
         modal.style.display = 'none';
     });
 
     if (type === 'reminder') {
-        document.getElementById('toggle-done-detail').addEventListener('click', () => {
+        document.getElementById('toggle-done-detail').addEventListener('click', async () => {
             note.done = !note.done;
             if (note.done) {
                 note.missed = false;
             }
+
+            // Update on server and local arrays
+            await updateOnServerAndLocal(note.id, {
+                done: note.done,
+                missed: note.missed
+            });
+
             displayReminders();
             checkReminders();
-            modal.style.display = 'none';
-        });
-
-        document.getElementById('reschedule-detail').addEventListener('click', () => {
-            const newDatetime = prompt('Enter new reminder date and time:', note.reminder);
-            if (newDatetime) {
-                note.reminder = newDatetime;
-                note.lastEditTime = new Date().toLocaleString();
-                note.alertedDay = false;
-                note.alertedTime = false;
-                note.missed = false;
-                displayReminders();
-                checkReminders();
-            }
             modal.style.display = 'none';
         });
     }
@@ -254,7 +477,7 @@ function checkReminders() {
     const now = new Date();
     const today = now.toDateString(); // e.g., "Fri Dec 20 2025"
 
-    reminders.forEach((reminder) => {
+    reminders.forEach(async (reminder) => {
         if (!reminder.reminder || reminder.done) return;
 
         try {
@@ -264,23 +487,37 @@ function checkReminders() {
             const reminderDay = reminderDate.toDateString();
             const reminderTime = reminderDate.getTime();
 
+            let needsUpdate = false;
+            const updates = {};
+
             // Check if it's the day of the reminder
             if (!reminder.alertedDay && reminderDay === today) {
                 alert(`Reminder for today: ${reminder.title}`);
                 reminder.alertedDay = true;
+                updates.alertedDay = true;
+                needsUpdate = true;
             }
 
             // Check if it's the specific time (within 1 minute)
             if (!reminder.alertedTime && Math.abs(now.getTime() - reminderTime) < 60000) {
                 alert(`Reminder time: ${reminder.title}`);
                 reminder.alertedTime = true;
+                updates.alertedTime = true;
+                needsUpdate = true;
             }
 
             // Check if missed
             if (!reminder.missed && now.getTime() > reminderTime + 60000) { // Past by more than 1 minute
                 reminder.missed = true;
                 alert(`Missed reminder: ${reminder.title}`);
+                updates.missed = true;
+                needsUpdate = true;
                 displayReminders(); // Update display
+            }
+
+            // Update server if needed
+            if (needsUpdate) {
+                await updateOnServerAndLocal(reminder.id, updates);
             }
         } catch (error) {
             console.error('Error checking reminder:', error);

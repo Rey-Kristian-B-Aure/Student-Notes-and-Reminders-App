@@ -1,0 +1,79 @@
+{
+  "notes": [
+    {
+      "id": 0,
+      "title": "Hello World",
+      "content": "Hello World",
+      "timestamp": "12/20/2025, 10:08:23 PM",
+      "lastEditTime": "12/20/2025, 10:08:23 PM",
+      "reminder": null,
+      "alertedDay": false,
+      "alertedTime": false,
+      "done": false,
+      "missed": false
+    },
+    {
+      "id": 1,
+      "title": "Water Thoughts",
+      "content": "I really like the idea of the properties of water to be adaptive and flowy to overcome and adapt against challenges they face along the way.",
+      "timestamp": "12/20/2025, 10:09:36 PM",
+      "lastEditTime": "12/20/2025, 10:09:36 PM",
+      "reminder": null,
+      "alertedDay": false,
+      "alertedTime": false,
+      "done": false,
+      "missed": false
+    },
+    {
+      "id": 3,
+      "title": "Untitled2",
+      "content": "To Bee or Not to Bee",
+      "timestamp": "12/20/2025, 10:11:38 PM",
+      "lastEditTime": "12/20/2025, 10:11:38 PM",
+      "reminder": null,
+      "alertedDay": false,
+      "alertedTime": false,
+      "done": false,
+      "missed": false
+    },
+    {
+      "id": 4,
+      "title": "Untitled3",
+      "content": "Note here",
+      "timestamp": "12/20/2025, 10:11:44 PM",
+      "lastEditTime": "12/21/2025, 2:00:33 PM",
+      "reminder": null,
+      "alertedDay": true,
+      "alertedTime": true,
+      "done": false,
+      "missed": false
+    }
+  ],
+  "reminders": [
+    {
+      "id": 2,
+      "title": "Untitled1",
+      "content": "Feed the cat",
+      "timestamp": "12/20/2025, 10:09:53 PM",
+      "lastEditTime": "12/20/2025, 10:09:53 PM",
+      "reminder": "2025-12-20T22:09",
+      "alertedDay": true,
+      "alertedTime": true,
+      "done": true,
+      "missed": false
+    },
+    {
+      "id": 6,
+      "title": "Untitled5",
+      "content": "New Reminders",
+      "timestamp": "12/20/2025, 10:12:18 PM",
+      "lastEditTime": "12/21/2025, 2:04:35 PM",
+      "reminder": "2025-12-10T14:04",
+      "alertedDay": false,
+      "alertedTime": false,
+      "done": true,
+      "missed": false
+    }
+  ],
+  "nextId": 17
+}

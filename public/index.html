@@ -10,44 +10,54 @@
 </head>
 
 <body>
-    <div>
-        <h1>Note and Reminders</h1>
+    <header>
+        <h1>Student Notes and Reminders</h1>
+    </header>
 
+    <main>
         <!-- Add note taking part -->
         <div id="note-input-section">
-            <div class="input-row">
-                <textarea id="note-content" placeholder="Enter your note here..."></textarea>
-                <div class="input-fields">
-                    <input type="text" id="note-title" placeholder="Add Note Title">
-                    <input type="datetime-local" id="note-datetime">
-                    <button id="add-note-button">Save Note</button>
-                </div>
+            <div class="input-group">
+                <label for="note-title">Note Title</label>
+                <input type="text" id="note-title" placeholder="Add Note Title" required>
+            </div>
+            <div class="input-group">
+                <label for="note-content">Note Content</label>
+                <textarea id="note-content" placeholder="Enter your note here..." required></textarea>
+            </div>
+            <div class="input-group">
+                <label for="note-datetime">Add Reminder</label>
+                <input type="datetime-local" id="note-datetime">
+            </div>
+            <div class="button-group">
+                <button id="reset-button">Reset Input</button>
+                <button id="add-note-button">Save Note</button>
             </div>
         </div>
-    </div>
 
-    <div>
-        <!-- Display Notes with Nearest Reminder-->
-        <div id="reminders">
-            <h2>Reminders</h2>
-            <div id="reminders-container"></div>
-        </div>
+        <div>
+            <!-- Display Notes with Nearest Reminder-->
+            <div id="reminders">
+                <h2>Reminders</h2>
+                <div id="reminders-container"></div>
+            </div>
 
-        <!-- Display Notes in Card Form-->
-        <div id="notes-display">
-            <h2>All Notes</h2>
-            <div id="notes-container"></div>
+            <!-- Display Notes in Card Form-->
+            <div id="notes-display">
+                <h2>All Notes</h2>
+                <div id="notes-container"></div>
+            </div>
         </div>
-    </div>
-    <script src="script.js"></script>
+        <script src="script.js"></script>
 
-    <!-- Modal for note details -->
-    <div id="note-modal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <div id="modal-body"></div>
+        <!-- Modal for note details -->
+        <div id="note-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <div id="modal-body"></div>
+            </div>
         </div>
-    </div>
+    </main>
 
 </body>
 
